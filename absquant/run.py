@@ -1,3 +1,4 @@
+from collections import defaultdict
 import pathlib
 from pkg_resources import resource_filename
 import multiprocessing as mp
@@ -22,6 +23,28 @@ def run_absquant(
         run(args)
 
 
+def collect(results_dir: str):
+    results_dir = pathlib.Path(results_dir)
+    coef_files = results_dir.glob("*.tsv")
+    estimates = defaultdict(dict)
+    pvalues = defaultdict(dict)
+
+    usecols = ["Estimate", "Pr(>|z|)"]
+    for f in coef_files:
+        this_coef = pd.read_table(f, index_col=0)
+        this_coef = this_coef[usecols]
+        cov = this_coef.index.tolist()
+        for cov, row in this_coef.iterrows():
+            estimates[f.stem][f"{cov}_estimate"] = row["Estimate"]
+            pvalues[f.stem][f"{cov}_pvalue"] = row["Pr(>|z|)"]
+
+    estimate_df = pd.DataFrame(estimates).T
+    pvalue_df = pd.DataFrame(pvalues).T
+
+    results_df = pd.concat([estimate_df, pvalue_df], axis=1)
+    return results_df
+
+
 def absquant(
     table: biom.Table,
     metadata: pd.DataFrame,
@@ -35,16 +58,18 @@ def absquant(
 
     samp_ids = table.ids("sample")
     feat_ids = table.ids("observation")
+    depths = pd.Series(table.sum("sample").astype(int), index=samp_ids)
     pool = mp.Pool(njobs)
 
     for fid, counts in zip(
         feat_ids,
         table.iter_data(dense=True, axis="observation")
-        ):
+    ):
         counts = pd.Series(counts.astype(int), index=samp_ids,
                            name="abs_counts")
         data = metadata.copy()
         data["abs_counts"] = counts
+        data["depth"] = depths
         data = data.dropna(subset="abs_counts")
         args = (data, formula, fid, output_dir, tmp_dir)
         pool.apply_async(run_absquant, args)

@@ -29,14 +29,13 @@ outdir <- args[[3]]
 feat.name <- args[[4]]
 
 output <- paste0(outdir, "/", feat.name, ".tsv")
-print(output)
-formula <- as.formula(paste0("abs_counts ~ ", formula))
+formula <- paste0("abs_counts ~ ", formula, " + offset(log(depth))")
+formula <- as.formula(formula)
 
 # NOTE: R will just sometimes change the names of your columns
+# NOTE: Need to add offset?
 md <- read.table(md.file, sep="\t", row.names=1, header=TRUE)
 model <- glm.nb(formula, data=md)
 
 coefs <- as.data.frame(coef(summary(model)))
-print(coefs)
 write.table(coefs, output, sep="\t", quote=FALSE, col.names=NA)
-print("Done!")
