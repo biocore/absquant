@@ -1,6 +1,6 @@
 from collections import defaultdict
 import pathlib
-from pkg_resources import resource_filename
+from importlib_resources import files as resource
 import multiprocessing as mp
 from subprocess import run
 import tempfile
@@ -8,7 +8,8 @@ import tempfile
 import biom
 import pandas as pd
 
-RSCRIPT = resource_filename("absquant", "absquant.R")
+RSCRIPT = resource("absquant") / "absquant.R"
+
 
 def run_absquant(
     data: pd.DataFrame,
